@@ -51,11 +51,11 @@ fn cascade_detector(classifier: &mut objdetect::CascadeClassifier, img: &Mat) ->
     const SCALE_FACTOR: f64 = 1.1;
     const MIN_NEIGHBORS: i32 = 2;
     const FLAGS: i32 = 0;
-    const MIN_FACE_SIZE: Size = Size {
+    const MIN_SIZE: Size = Size {
         width: 30,
         height: 30,
     };
-    const MAX_FACE_SIZE: Size = Size {
+    const MAX_SIZE: Size = Size {
         width: 0,
         height: 0,
     };
@@ -67,8 +67,8 @@ fn cascade_detector(classifier: &mut objdetect::CascadeClassifier, img: &Mat) ->
         SCALE_FACTOR,
         MIN_NEIGHBORS,
         FLAGS,
-        MIN_FACE_SIZE,
-        MAX_FACE_SIZE,
+        MIN_SIZE,
+        MAX_SIZE,
     )?;
     Ok(faces)
 
@@ -96,13 +96,11 @@ pub fn get_classifier_model(dir: &str) -> Result<objdetect::CascadeClassifier> {
 
 }
 
-pub fn process_person_detection(classifier: &mut objdetect::CascadeClassifier, img: &mut Mat) -> Result<Vec<u8>> {
+pub fn process_person_detection(classifier: &mut objdetect::CascadeClassifier, mut img: Mat) -> Result<Mat> {
     let processed = processing(&img)?; 
     let objects= cascade_detector(classifier, &processed)?;
     for item in objects {
-        trace_img(img, item)?;
+        trace_img(&mut img, item)?;
     }
-    let mut buf: Vector<u8> = Vector::new();
-    imgcodecs::imencode(".jpeg", img, &mut buf, &Vector::<i32>::new())?;
-    return Ok(buf.to_vec());
+    return Ok(img);
 }

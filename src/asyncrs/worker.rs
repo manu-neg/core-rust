@@ -41,7 +41,8 @@ fn vec_to_jpeg(raw_bytes: Vec<u8>) -> opencv::Result<Mat> {
 async fn handle_connection(mut s: TcpStream, pipe: TransmissionType) -> std::io::Result<()> {
     let mut seg: [u8; 8] = [0; 8];
     let mut req: Vec<u8>;
-    let mut cascade = get_classifier_model("cascades/haarcascade_frontalface_default.xml").expect("unable to get cascade");
+    let mut face_cascade = get_classifier_model("cascades/haarcascade_frontalface_default.xml").expect("unable to get cascade");
+    let mut fullbody_cascade = get_classifier_model("cascades/haarcascade_fullbody.xml").expect("unable to get cascade");
 
     //benchmark vars
     /*
@@ -64,16 +65,14 @@ async fn handle_connection(mut s: TcpStream, pipe: TransmissionType) -> std::io:
         s.read_exact(&mut req).await?; 
 
         match imgcodecs::imdecode(&(&req as &[u8]), imgcodecs::IMREAD_COLOR) {
-            Ok(mut img) => {
-                match process_person_detection(&mut cascade, &mut img) {
-                    Ok(buf) => {
-                        let mut queue = pipe.write().await;
-                        (*queue) = Some(buf.to_vec());
-                    },
-                    Err(e) => {
-                        eprintln!("Error processing image detection. <{}>", e);
-                    }
-                };
+            Ok(img) => {
+                let mut img: Mat = process_person_detection(&mut fullbody_cascade, img).expect("Error detecting step 1.");
+                img = process_person_detection(&mut face_cascade, img).expect("Error detecting step 2.");
+
+                let mut buf: Vector<u8> = Vector::new();
+                imgcodecs::imencode(".jpeg", &mut img, &mut buf, &Vector::<i32>::new()).expect("Error encoding result image.");
+                let mut queue = pipe.write().await;
+                (*queue) = Some(buf.to_vec());
             },
             Err(e) => {
                 eprintln!("Error Converting image: {}", e);
