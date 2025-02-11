@@ -1,5 +1,5 @@
 use opencv::core::{Rect, Scalar, Size, Vector};
-use opencv::{imgcodecs, prelude::*};
+use opencv::prelude::*;
 use opencv::{objdetect, imgproc};
 
 
