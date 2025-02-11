@@ -6,10 +6,11 @@ use async_std::fs;
 use async_std::sync::{Arc, RwLock};
 use async_std::task::sleep;
 use opencv::{core::Vector, imgcodecs, prelude::*};
-/*
-use image;
-use std::io::Cursor;
-*/
+use crate::asyncrs::detector::{get_classifier_model, process_person_detection};
+
+
+// use std::time::Instant;
+
 pub type TransmissionType = Arc<RwLock<Option<Vec<u8>>>>;
 
 
@@ -28,7 +29,7 @@ pub async fn tcp_async(host: &str, port: &str, pipe: TransmissionType) -> std::i
         }
     }
 }
-
+#[allow(dead_code)]
 fn vec_to_jpeg(raw_bytes: Vec<u8>) -> opencv::Result<Mat> {
     let data = Vector::from_slice(&raw_bytes); // Create Mat from raw bytes
     let result = imgcodecs::imdecode(&data, imgcodecs::IMREAD_COLOR)?;
@@ -36,36 +37,53 @@ fn vec_to_jpeg(raw_bytes: Vec<u8>) -> opencv::Result<Mat> {
 }
 
 
+
 async fn handle_connection(mut s: TcpStream, pipe: TransmissionType) -> std::io::Result<()> {
     let mut seg: [u8; 8] = [0; 8];
     let mut req: Vec<u8>;
-    loop {
+    let mut cascade = get_classifier_model("cascades/haarcascade_frontalface_default.xml").expect("unable to get cascade");
 
+    //benchmark vars
+    /*
+    let mut measurement: Instant = Instant::now();
+    let interval: Duration = Duration::from_secs(1);
+    let mut frame_count: u64 = 0; 
+    */
+    loop {
+        /*
+        if measurement.elapsed() >= interval {
+            measurement = Instant::now();
+            // println!("FPS: {}", frame_count / interval.as_secs());
+            frame_count = 0;
+        } else { frame_count += 1; }
+        */
         s.read_exact(&mut seg).await?;
         let content_size: usize = u64::from_be_bytes(seg) as usize;
-        println!("content-size: {}", &content_size);
         seg = [0; 8];
         req = vec![0u8; content_size];
         s.read_exact(&mut req).await?; 
-        // comentar esto al habilitar el siguiente bloque
-        let mut queue = pipe.write().await;
-        (*queue) = Some(req);
-        // ESTE BLOQUE ES PARA PROCESAR LAS IMAGENES
-        // reduce la velocidad
 
-        /*
-        match vec_to_jpeg(req) {
-            Ok(img) => {
-                println!("Img conversion good");
-                imgcodecs::imwrite("Images/test.jpeg", &img, &Vector::new()).expect("Failed to write test");
-
-
+        match imgcodecs::imdecode(&(&req as &[u8]), imgcodecs::IMREAD_COLOR) {
+            Ok(mut img) => {
+                match process_person_detection(&mut cascade, &mut img) {
+                    Ok(buf) => {
+                        let mut queue = pipe.write().await;
+                        (*queue) = Some(buf.to_vec());
+                    },
+                    Err(e) => {
+                        eprintln!("Error processing image detection. <{}>", e);
+                    }
+                };
             },
             Err(e) => {
-                eprintln!("{}", e);
+                eprintln!("Error Converting image: {}", e);
+                continue;
             }
-        }
-        */
+        };
+
+        
+
+
     }
 }
 
@@ -146,7 +164,7 @@ repeat 2
 
         if let Some(i) = (*(pipe.read().await)).clone() {
             if image_clone == i {
-                sleep(Duration::from_millis(10)).await;
+                sleep(Duration::from_millis(1)).await;
                 continue;
             } else {
                 image_clone = i;
