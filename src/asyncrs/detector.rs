@@ -2,6 +2,10 @@ use opencv::core::{Rect, Scalar, Size, Vector};
 use opencv::prelude::*;
 use opencv::{objdetect, imgproc};
 
+pub struct ReturnMetadata {
+    pub img: Mat,
+    pub detection: bool
+}
 
 type Result<T> = opencv::Result<T>;
 const SCALE_FACTOR: f64 = 0.5;
@@ -96,11 +100,12 @@ pub fn get_classifier_model(dir: &str) -> Result<objdetect::CascadeClassifier> {
 
 }
 
-pub fn process_person_detection(classifier: &mut objdetect::CascadeClassifier, mut img: Mat) -> Result<Mat> {
+pub fn process_person_detection(classifier: &mut objdetect::CascadeClassifier, mut img: Mat) -> Result<ReturnMetadata> {
     let processed = processing(&img)?; 
     let objects= cascade_detector(classifier, &processed)?;
+    let detected = objects.len() > 0;
     for item in objects {
         trace_img(&mut img, item)?;
     }
-    return Ok(img);
+    return Ok(ReturnMetadata { img: img, detection: detected});
 }

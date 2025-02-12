@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 opencv = { version = "0.94.2", features = ["clang-runtime"] }
+chrono = "0.4.39"
 
 [dependencies.async-std]
 version = "1.7.0"
