@@ -64,17 +64,17 @@ fn cascade_detector(classifier: &mut objdetect::CascadeClassifier, img: &Mat) ->
         height: 0,
     };
 
-    let mut faces: Vector<opencv::core::Rect> = Vector::new();
+    let mut detection: Vector<opencv::core::Rect> = Vector::new();
     classifier.detect_multi_scale(
         &img,
-        &mut faces,
+        &mut detection,
         SCALE_FACTOR,
         MIN_NEIGHBORS,
         FLAGS,
         MIN_SIZE,
         MAX_SIZE,
     )?;
-    Ok(faces)
+    Ok(detection)
 
 }
 
